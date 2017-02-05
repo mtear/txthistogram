@@ -13,6 +13,7 @@ A GUI interface if no arguments are specified
 PDF output  
 Other supported archive file types  
 More options for the PNG output (colors, fonts, etc)  
+Look in archives inside of archives  
 
 ## License
 
