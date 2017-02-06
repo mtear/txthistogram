@@ -23,6 +23,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
 
 //*****************************************************************************
 //*******************************CLASSES***************************************
@@ -175,34 +176,32 @@ public class HistogramDataBuilder {
 		for(String f : files){
 			
 			//Handle zip files
-			if(f.endsWith(".zip")){
+			if(f.endsWith(ZIP_EXTENSION)){
 				ZipFile zip = null;
 				try{
 				    zip = new ZipFile(f);
+				    ArrayList<String> contents = new ArrayList<String>();
 				    //Get entries in the zip file
 				    Enumeration<? extends ZipEntry> zipFiles = zip.entries();
 				    //Iterate through all files inside
 				    while(zipFiles.hasMoreElements()){
 				        ZipEntry entry = zipFiles.nextElement();
-				        //If is a text file handle it
-				        if(entry.getName().endsWith(TXT_EXTENSION)){
-					        InputStream inStream = 
-					        		zip.getInputStream(entry);
-					        try{
-					        	String zipFileWords =
-					        				inputStreamToString(inStream);
-						        counts.add(wordCountString(zipFileWords));
-					        }catch(Exception e){
-					        	System.err.println("There was an error reading"
-					        			   + " from a txt file in a zip file: "
-					        										+ f + "!");
-					        	counts.add(-1);
-					        }
+				        if(entry.getName().endsWith(ZIP_EXTENSION)){
+					        contents.addAll(scanZipRecursive(
+					        		zip.getInputStream(entry)));
+				        }else if(entry.getName().endsWith(TXT_EXTENSION)){
+				        	contents.add(inputStreamToString(
+				        			zip.getInputStream(entry)));
 				        }
+				    }
+				    //Add word counts
+				    for(String s : contents){
+					    counts.add(wordCountString(s));
 				    }
 				}catch(Exception e){ //Error reading from zip
 					System.err.println("There was an error reading from "
 												+ "zip file: " + f + "!");
+					e.printStackTrace();
 				}finally{ //Close the zip archive
 					try{
 						zip.close();
@@ -335,6 +334,37 @@ public class HistogramDataBuilder {
 	    } finally {
 	        reader.close();
 	    }
+	}
+	
+	/**
+	 * Scans a zip file and all zip files inside that zip file contains
+	 * for txt files. Collects the contents of all those txt files as
+	 * Strings and then returns them.
+	 * 
+	 * @param inStream An InputStream to a ZipEntry from a ZipFile
+	 * @return A list of Strings of the txt files in the zip and in
+	 * nested zip archives
+	 * @throws IOException Errors could occur during file reading
+	 */
+	private ArrayList<String> scanZipRecursive(InputStream inStream)
+			throws IOException {
+		ArrayList<String> contents = new ArrayList<String>();
+	    ZipInputStream input = new ZipInputStream(inStream);
+	    ZipEntry entry = null;
+	    //Iterate over files in the Zip archive
+	    while ( (entry = input.getNextEntry()) != null ) {
+	       if (entry.getName().endsWith(ZIP_EXTENSION)) {
+	    	   //Recursive loop on other zip archives
+	    	   contents.addAll(scanZipRecursive(input));
+	       }else if (entry.getName().endsWith(TXT_EXTENSION)){
+	    	   //Read the txt file from the stream
+	    	   byte[] inner = new byte[(int)entry.getSize()];
+	    	   input.read(inner);
+	    	   String s = new String(inner);
+	    	   contents.add(s);
+	       }
+	    }
+	    return contents;
 	}
 	
 	/**

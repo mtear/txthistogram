@@ -114,8 +114,10 @@ public class EntryPoint {
 				+ " files. Archive files (zip) will be scanned as well.");
 		System.out.println("A histogram will be generated in that directory"
 				+ " as a PNG file if the -PNG flag is used.\n");
-		System.out.println("Usage: txthistogram directory [interval] [-PNG width height]");
-		System.out.println("directory: The root directory to scan for txt files");
+		System.out.println("Usage: txthistogram directory [interval]"
+				+ " [-PNG width height]");
+		System.out.println("directory: The root directory to scan for"
+				+ " txt files");
 		System.out.println("\n");
 	}
 	
