@@ -5,7 +5,7 @@ Can produce console and PNG output.
 
 ## Changelog
 
-** v1.1: ** Added support for nested zip archives.
+**v1.1:** Added support for nested zip archives.
 
 ## Sample PNG output
 
