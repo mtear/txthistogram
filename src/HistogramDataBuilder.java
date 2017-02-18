@@ -11,19 +11,10 @@
 //***************************IMPORTED LIBRARIES********************************
 //*****************************************************************************
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipInputStream;
 
 //*****************************************************************************
 //*******************************CLASSES***************************************
@@ -39,19 +30,6 @@ import java.util.zip.ZipInputStream;
  * 
  */
 public class HistogramDataBuilder {
-	
-//*********************************************************____________________
-//****************STATIC CONSTANTS*************************____________________
-//*********************************************************____________________
-	
-	/**
-	 * A constant for the txt file extension
-	 */
-	final static String TXT_EXTENSION = ".txt";
-	/**
-	 * A constant for the zip file extension
-	 */
-	final static String ZIP_EXTENSION = ".zip";
 
 //*********************************************************____________________
 //*****************STATIC METHODS**************************____________________
@@ -141,89 +119,11 @@ public class HistogramDataBuilder {
 	public HashMap<Integer, Integer> build(int interval){
 		return  separateHistogramIntervals(
 				createHistogramData(
-				countWordsInTextFiles(
-				findAllTextFilesRecursive(
-				new File(mPath)
+				WordCounter.countWordsInTextFiles(
+				RecursiveFileReader.findAllFilesRecursive(
+						new File(mPath),
+						FileUtil.TXT_EXTENSION
 				))),interval);
-	}
-	
-	/**
-	 * Count the word counts in the specified list of files.
-	 * 
-	 * This method will total up the word count values for all the files
-	 * specified in the input argument. If an input file is an archived file
-	 * (currently only a .zip file) then it will be searched through and
-	 * all .txt files inside will be counted as well.
-	 * 
-	 * A polymorphic extension for how to handle .zip files, .tar files,
-	 * or regular files could have been made for cleaner object-oriented
-	 * design. I decided to go with an "if" structure for ease of
-	 * implementation.
-	 * 
-	 * <b>If there is trouble reading from a file, -1 will be returned as
-	 * the word count value for that file.</b>
-	 * 
-	 * @param files A list of files, .txt or archive, to perform a word
-	 * count on
-	 * @return A list containing how many words each found .txt file contained
-	 */
-	private ArrayList<Integer> countWordsInTextFiles(ArrayList<String> files){
-		
-		//Create a return array of word count values
-		ArrayList<Integer> counts = new ArrayList<Integer>();
-		
-		//Iterate through all the files
-		for(String f : files){
-			
-			//Handle zip files
-			if(f.endsWith(ZIP_EXTENSION)){
-				ZipFile zip = null;
-				try{
-				    zip = new ZipFile(f);
-				    ArrayList<String> contents = new ArrayList<String>();
-				    //Get entries in the zip file
-				    Enumeration<? extends ZipEntry> zipFiles = zip.entries();
-				    //Iterate through all files inside
-				    while(zipFiles.hasMoreElements()){
-				        ZipEntry entry = zipFiles.nextElement();
-				        if(entry.getName().endsWith(ZIP_EXTENSION)){
-					        contents.addAll(scanZipRecursive(
-					        		zip.getInputStream(entry)));
-				        }else if(entry.getName().endsWith(TXT_EXTENSION)){
-				        	contents.add(inputStreamToString(
-				        			zip.getInputStream(entry)));
-				        }
-				    }
-				    //Add word counts
-				    for(String s : contents){
-					    counts.add(wordCountString(s));
-				    }
-				}catch(Exception e){ //Error reading from zip
-					System.err.println("There was an error reading from "
-												+ "zip file: " + f + "!");
-					e.printStackTrace();
-				}finally{ //Close the zip archive
-					try{
-						zip.close();
-					}catch(Exception e){
-						System.err.println("Error closing zip stream!");
-					}
-				}
-			}else{ //Handle txt files
-				int c = -1;
-				try{
-					c = wordCountString(readFile(f));
-				}catch(Exception e){
-					System.err.println("There was an error reading from file: "
-																	+ f + "!");
-				}
-				counts.add(c);
-			}
-			
-		} //end for
-		
-		//Return the word counts
-		return counts;
 	}
 	
 	/**
@@ -246,125 +146,6 @@ public class HistogramDataBuilder {
 		}
 		
 		return histogram;
-	}
-	
-	/**
-	 * Find all the text files in a directory and all the directory's
-	 * subdirectories.
-	 * 
-	 * Includes archive files as their contents will be read at a later
-	 * stage.
-	 * 
-	 * @param rootfile The root directory to begin searching from
-	 * @return A list of all the .txt files and archive files found
-	 */
-	private ArrayList<String> findAllTextFilesRecursive(File rootfile)
-	{
-		ArrayList<String> textFiles = new ArrayList<String>();
-		File[] files = null;
-		try{
-			files = rootfile.listFiles(); 
-		}catch(Exception e){
-			//A failure can occur if the program does not have read
-			//privledges to a folder. In that case as the function
-			//is recursive we will return the empty list
-			return textFiles;
-		}
-
-	    for (File file : files) {
-	        if (file.isFile() &&
-	        		(file.getName().endsWith(TXT_EXTENSION)
-	        		|| file.getName().endsWith(ZIP_EXTENSION))) {
-	            textFiles.add(file.getAbsolutePath());
-	        } else if (file.isDirectory()) {
-	            textFiles.addAll(findAllTextFilesRecursive(file));
-	        }
-	    }
-	    
-	    return textFiles;
-	}
-	
-	/**
-	 * Read an InputStream object into a String
-	 * 
-	 * @param inStream The input stream to read from
-	 * @return A String of the input stream's contents
-	 * @throws IOException An exception occurs if there was an error reading
-	 * from the stream
-	 */
-	private String inputStreamToString(InputStream inStream)
-										 throws IOException{
-	    BufferedReader reader = new BufferedReader(
-	    		new InputStreamReader(inStream));
-	    try {
-	        StringBuilder builder = new StringBuilder();
-	        String line = reader.readLine();
-
-	        while (line != null) {
-	        	builder.append(line + "\n");
-	            line = reader.readLine();
-	        }
-	        return builder.toString();
-	    } finally {
-	        reader.close();
-	    }
-	}
-	
-	/**
-	 * Read a file as a string.
-	 * 
-	 * An improvement could be made to account for file encodings.
-	 * 
-	 * @param fileName The file to be read
-	 * @return A String of the file's contents
-	 * @throws IOException An exception occurs if the file could not be read
-	 */
-	private String readFile(String fileName) throws IOException {
-	    BufferedReader reader = new BufferedReader(new FileReader(fileName));
-	    try {
-	        StringBuilder builder = new StringBuilder();
-	        String line = reader.readLine();
-
-	        while (line != null) {
-	        	//Append "\n" as .readLine() removed it
-	        	builder.append(line + "\n");
-	            line = reader.readLine();
-	        }
-	        return builder.toString();
-	    } finally {
-	        reader.close();
-	    }
-	}
-	
-	/**
-	 * Scans a zip file and all zip files inside that zip file contains
-	 * for txt files. Collects the contents of all those txt files as
-	 * Strings and then returns them.
-	 * 
-	 * @param inStream An InputStream to a ZipEntry from a ZipFile
-	 * @return A list of Strings of the txt files in the zip and in
-	 * nested zip archives
-	 * @throws IOException Errors could occur during file reading
-	 */
-	private ArrayList<String> scanZipRecursive(InputStream inStream)
-			throws IOException {
-		ArrayList<String> contents = new ArrayList<String>();
-	    ZipInputStream input = new ZipInputStream(inStream);
-	    ZipEntry entry = null;
-	    //Iterate over files in the Zip archive
-	    while ( (entry = input.getNextEntry()) != null ) {
-	       if (entry.getName().endsWith(ZIP_EXTENSION)) {
-	    	   //Recursive loop on other zip archives
-	    	   contents.addAll(scanZipRecursive(input));
-	       }else if (entry.getName().endsWith(TXT_EXTENSION)){
-	    	   //Read the txt file from the stream
-	    	   byte[] inner = new byte[(int)entry.getSize()];
-	    	   input.read(inner);
-	    	   String s = new String(inner);
-	    	   contents.add(s);
-	       }
-	    }
-	    return contents;
 	}
 	
 	/**
@@ -424,37 +205,6 @@ public class HistogramDataBuilder {
 		}
 		
 		return newHistogram;
-	}
-	
-	/**
-	 * Count the words in a string.
-	 * 
-	 * @param s The string to count the words
-	 * @return The word count as an integer
-	 */
-	private int wordCountString(String s){
-		int count = 0;
-		boolean inWord = false;
-		
-		//Keep a boolean flag of if the iteration is in a word
-		//Increase the word count if in a word and then a non-word character
-		//appears.
-		
-		for(int i = 0; i < s.length(); i++){
-			if(Character.isLetter(s.charAt(i)) 
-					|| Character.isDigit(s.charAt(i))){
-				inWord = true;
-			}else{
-				if(inWord){
-					count++;
-					inWord = false;
-				}
-			}
-		}
-		//If in a word at the end of the string, count this word
-		if(inWord) count++;
-		
-		return count;
 	}
 	
 }
